@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  telegram-scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telegram-scraper
+    restart: unless-stopped
+    
+    environment:
+      # Telegram API Credentials (required)
+      - API_ID=${API_ID}
+      - API_HASH=${API_HASH}
+      
+      # Session management
+      - SESSION_PASSWORD=${SESSION_PASSWORD:-changeme}
+      
+      # Bot configuration (optional)
+      - BOT_TOKEN=${BOT_TOKEN:-}
+      - OWNER_ID=${OWNER_ID:-0}
+      
+      # Directories
+      - SESSIONS_DIR=/app/sessions
+      - CSV_OUTPUT_DIR=/app/output
+      - LOG_DIR=/app/logs
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    
+    volumes:
+      # Persist sessions across container restarts
+      - ./sessions:/app/sessions
+      - ./output:/app/output
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+    
+    stdin_open: true
+    tty: true
+    
+    # For long-running operations
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
+
+  management-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: management-bot
+    restart: unless-stopped
+    command: python bot.py
+    
+    depends_on:
+      - telegram-scraper
+    
+    environment:
+      # Telegram API Credentials (required)
+      - API_ID=${API_ID}
+      - API_HASH=${API_HASH}
+      
+      # Bot Token (required for bot)
+      - BOT_TOKEN=${BOT_TOKEN}
+      - OWNER_ID=${OWNER_ID}
+      
+      # Session management
+      - SESSION_PASSWORD=${SESSION_PASSWORD:-changeme}
+      
+      # Directories
+      - SESSIONS_DIR=/app/sessions
+      - CSV_OUTPUT_DIR=/app/output
+      - LOG_DIR=/app/logs
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    
+    volumes:
+      # Share same volumes with scraper
+      - ./sessions:/app/sessions
+      - ./output:/app/output
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+    
+    stdin_open: true
+    tty: true
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
